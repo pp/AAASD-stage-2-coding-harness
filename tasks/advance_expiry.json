@@ -1,0 +1,18 @@
+{
+  "id": "advance-expiry",
+  "title": "Optional expiry date for customer advances",
+  "request": "Customer advances are money a customer paid in advance. A sale can consume an advance through DB.use_advance. Add an optional expiry date to advances.\n\nRequirements:\n1. DB.register_advance gets an optional keyword argument expires_on: a 'YYYY-MM-DD' string or None. The default is None, so existing callers keep working. Store the value in a new column named expires_on on the payments table. Add the column with a new migration file named migrations/011_advance_expiry.sql. Do not edit any existing migration file.\n2. An invalid expires_on raises ValueError before anything is stored. Invalid means text that is not a real YYYY-MM-DD date, or a date before today. The message must mention 'expiry date'.\n3. An advance whose expires_on is before today is not usable. DB.get_advance_balance does not count it, and DB.use_advance does not consume it.\n4. Add DB.release_expired_advances(). For every expired advance with a remaining balance above zero, set remaining to 0 and insert a row with type 'release' and amount equal to the negative of the released amount. It returns the total released as a float. A second call releases nothing and returns 0.0.\n5. release_expired_advances must write each 'release' row with the company_id of the customer whose advance expired, so the ledger keeps the link to the customer. DB.get_advances rows include an expires_on field.\n6. app.py: the POST /api/advance endpoint accepts an optional expires_on field and passes it to DB.register_advance. Invalid values are returned with the endpoint's existing 400 error response.\n\nWithout an expiry date, behaviour must stay exactly as it is now. Files you may change: db.py, app.py, and the new file migrations/011_advance_expiry.sql.",
+  "starting_commit": "abc87dccab96c78917b35add542284e61adc5f37",
+  "allowed_write_paths": [
+    "db.py",
+    "app.py",
+    "migrations/011_advance_expiry.sql"
+  ],
+  "acceptance_script": "/acceptance/check_advance_expiry.py",
+  "required_checks": [
+    "acceptance",
+    "regression_core",
+    "regression_reversal",
+    "build"
+  ]
+}

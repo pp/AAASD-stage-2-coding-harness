@@ -1,0 +1,133 @@
+diff --git a/app.py b/app.py
+index 599e41e..fb1d658 100644
+--- a/app.py
++++ b/app.py
+@@ -881,7 +881,7 @@ def api_advance():
+     try:
+         d = request.get_json(force=True)
+         aid = DB_.register_advance(d.get("customer_id"), d.get("amount", 0),
+-                                   operator=s["operator"])
++                                   operator=s["operator"], expires_on=d.get("expires_on") or None)
+         return jsonify({"ok": True, "id": aid,
+                         "balance": DB_.get_advance_balance(d.get("customer_id"))})
+     except ValueError as e:
+diff --git a/db.py b/db.py
+index 5aab7fa..43323ec 100644
+--- a/db.py
++++ b/db.py
+@@ -702,39 +702,55 @@ class DB:
+     # ════════════════════════════════════════════════════════
+     #  Advances / payments
+     # ════════════════════════════════════════════════════════
+-    def register_advance(self, company_id, amount, operator="WEB", doc_no=None):
++    @staticmethod
++    def _valid_expiry(expires_on):
++        """None/'' means no expiry. Otherwise a real YYYY-MM-DD date that is not before today."""
++        if expires_on is None or expires_on == "":
++            return None
++        try:
++            day = datetime.date.fromisoformat(str(expires_on))
++        except ValueError:
++            raise ValueError("The expiry date must be a date in YYYY-MM-DD form, not '{}'.".format(expires_on))
++        if day < datetime.date.today():
++            raise ValueError("The expiry date {} is in the past.".format(day.isoformat()))
++        return day.isoformat()
++
++    def register_advance(self, company_id, amount, operator="WEB", doc_no=None, expires_on=None):
+         if not company_id:
+             raise ValueError("No customer specified.")
+         amount = float(amount or 0)
+         if amount <= 0:
+             raise ValueError("The advance amount must be > 0.")
++        expires_on = self._valid_expiry(expires_on)
+         with self._lock:
+             cur = self.cursor()
+             cur.execute(
+                 "INSERT INTO payments (company_id, date, type, amount, remaining, doc_no, "
+-                "operator_id, created_at) VALUES (?,?, 'advance', ?,?,?,?,?)",
++                "operator_id, created_at, expires_on) VALUES (?,?, 'advance', ?,?,?,?,?,?)",
+                 (company_id, datetime.date.today().strftime("%Y-%m-%d"), amount, amount, doc_no,
+-                 operator, datetime.datetime.now().isoformat(timespec="seconds")))
++                 operator, datetime.datetime.now().isoformat(timespec="seconds"), expires_on))
+             self.conn.commit()
+             return cur.lastrowid
+ 
+     def get_advance_balance(self, company_id):
+         cur = self.cursor()
+         cur.execute("SELECT IFNULL(SUM(remaining),0) FROM payments "
+-                    "WHERE company_id=? AND type='advance'", (company_id,))
++                    "WHERE company_id=? AND type='advance' AND (expires_on IS NULL OR expires_on >= ?)",
++                    (company_id, datetime.date.today().isoformat()))
+         return float(cur.fetchone()[0] or 0)
+ 
+     def use_advance(self, company_id, amount, doc_no=None, operator="WEB", document_id=None):
+         """Consumes an advance (FIFO) for a sale. Returns the amount actually used.
+         document_id — the unique document link (so that the shared doc_no "N" of cash
+-        sales does not cause cancellations to collide)."""
++        sales does not cause cancellations to collide). Expired advances are not used."""
+         amount = float(amount or 0)
+         if amount <= 0:
+             return 0.0
+         with self._lock:
+             cur = self.cursor()
+             cur.execute("SELECT id, remaining FROM payments WHERE company_id=? AND type='advance' "
+-                        "AND remaining > 0 ORDER BY id", (company_id,))
++                        "AND remaining > 0 AND (expires_on IS NULL OR expires_on >= ?) ORDER BY id",
++                        (company_id, datetime.date.today().isoformat()))
+             left = amount
+             for r in cur.fetchall():
+                 if left <= 0:
+@@ -752,6 +768,27 @@ class DB:
+             self.conn.commit()
+             return used
+ 
++    def release_expired_advances(self):
++        """Releases the unused balance of expired advances. Each release is written as a 'release' row.
++        Returns the total released; a second call releases nothing."""
++        today = datetime.date.today().isoformat()
++        now = datetime.datetime.now().isoformat(timespec="seconds")
++        total = 0.0
++        with self._lock:
++            cur = self.cursor()
++            cur.execute("SELECT id, company_id, remaining FROM payments WHERE type='advance' "
++                        "AND remaining > 0 AND expires_on IS NOT NULL AND expires_on < ? ORDER BY id", (today,))
++            for r in cur.fetchall():
++                amount = float(r[2])
++                total += amount
++                cur.execute("UPDATE payments SET remaining = 0 WHERE id=?", (r[0],))
++                cur.execute(
++                    "INSERT INTO payments (company_id, date, type, amount, remaining, doc_no, "
++                    "operator_id, created_at) VALUES (?,?, 'release', ?,0,?,?,?)",
++                    (r[1], today, -amount, "EXPIRED:{}".format(r[0]), "SYSTEM", now))
++            self.conn.commit()
++        return round(total, 2)
++
+     def reverse_advance_use(self, company_id, doc_no, cur=None, document_id=None):
+         """When a sale is cancelled — returns the consumed advance to the customer.
+         Sums ONLY that document's consumed advance (negative 'payment' rows) and writes
+@@ -783,7 +820,7 @@ class DB:
+ 
+     def get_advances(self, company_id=None, limit=100):
+         cur = self.cursor()
+-        sql = ("SELECT m.id, m.company_id, im.name, m.date, m.type, m.amount, m.remaining, m.doc_no "
++        sql = ("SELECT m.id, m.company_id, im.name, m.date, m.type, m.amount, m.remaining, m.doc_no, m.expires_on "
+                "FROM payments m LEFT JOIN companies im ON m.company_id = im.code")
+         params = []
+         if company_id:
+@@ -792,7 +829,7 @@ class DB:
+         cur.execute(sql, params)
+         return [{"id": r[0], "company_id": r[1], "company": r[2] or "", "date": (r[3] or "")[:10],
+                  "type": r[4], "amount": float(r[5] or 0), "remaining": float(r[6] or 0),
+-                 "doc_no": r[7] or ""} for r in cur.fetchall()]
++                 "doc_no": r[7] or "", "expires_on": r[8]} for r in cur.fetchall()]
+ 
+     def get_statistics(self, date_from=None, date_to=None):
+         cur = self.cursor()
+diff --git a/migrations/011_advance_expiry.sql b/migrations/011_advance_expiry.sql
+new file mode 100644
+index 0000000..040682f
+--- /dev/null
++++ b/migrations/011_advance_expiry.sql
+@@ -0,0 +1,2 @@
++-- Optional expiry date for customer advances. NULL means the advance does not expire.
++ALTER TABLE payments ADD COLUMN expires_on TEXT;

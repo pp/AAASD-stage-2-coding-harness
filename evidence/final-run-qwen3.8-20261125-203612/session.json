@@ -1,0 +1,175 @@
+{
+  "task": {
+    "id": "advance-expiry",
+    "title": "Optional expiry date for customer advances",
+    "request": "Customer advances are money a customer paid in advance. A sale can consume an advance through DB.use_advance. Add an optional expiry date to advances.\n\nRequirements:\n1. DB.register_advance gets an optional keyword argument expires_on: a 'YYYY-MM-DD' string or None. The default is None, so existing callers keep working. Store the value in a new column named expires_on on the payments table. Add the column with a new migration file named migrations/011_advance_expiry.sql. Do not edit any existing migration file.\n2. An invalid expires_on raises ValueError before anything is stored. Invalid means text that is not a real YYYY-MM-DD date, or a date before today. The message must mention 'expiry date'.\n3. An advance whose expires_on is before today is not usable. DB.get_advance_balance does not count it, and DB.use_advance does not consume it.\n4. Add DB.release_expired_advances(). For every expired advance with a remaining balance above zero, set remaining to 0 and insert a row with type 'release' and amount equal to the negative of the released amount. It returns the total released as a float. A second call releases nothing and returns 0.0.\n5. release_expired_advances must write each 'release' row with the company_id of the customer whose advance expired, so the ledger keeps the link to the customer. DB.get_advances rows include an expires_on field.\n6. app.py: the POST /api/advance endpoint accepts an optional expires_on field and passes it to DB.register_advance. Invalid values are returned with the endpoint's existing 400 error response.\n\nWithout an expiry date, behaviour must stay exactly as it is now. Files you may change: db.py, app.py, and the new file migrations/011_advance_expiry.sql.",
+    "starting_commit": "abc87dccab96c78917b35add542284e61adc5f37",
+    "allowed_write_paths": [
+      "db.py",
+      "app.py",
+      "migrations/011_advance_expiry.sql"
+    ],
+    "required_checks": [
+      "acceptance",
+      "regression_core",
+      "regression_reversal",
+      "build"
+    ],
+    "project": null,
+    "acceptance_script": "/acceptance/check_advance_expiry.py"
+  },
+  "project": {
+    "name": "openstock",
+    "source": "C:\\Users\\Patrick\\Projects\\AAASD-stage-2-coding-harness\\targets\\openstock"
+  },
+  "starting_commit": "abc87dccab96c78917b35add542284e61adc5f37",
+  "model": "qwen3.8",
+  "max_actions": 80,
+  "max_retries": 3,
+  "max_repair_rounds": 3,
+  "snapshot": {
+    "allowed_write_paths": [
+      "db.py",
+      "app.py",
+      "migrations/011_advance_expiry.sql"
+    ],
+    "denied_paths": [
+      ".git",
+      "data",
+      "backups",
+      "documents",
+      "logs",
+      "venv",
+      ".venv",
+      "vendor",
+      "__pycache__",
+      "config_local.json",
+      ".env",
+      ".vscode",
+      ".idea"
+    ],
+    "required_checks": [
+      "acceptance",
+      "regression_core",
+      "regression_reversal",
+      "build"
+    ],
+    "checks": {
+      "regression_core": [
+        "python",
+        "tests/test_core.py"
+      ],
+      "regression_reversal": [
+        "python",
+        "tests/test_reversal_advances.py"
+      ],
+      "build": [
+        "python",
+        "/acceptance/check_build.py"
+      ],
+      "acceptance": [
+        "python",
+        "/acceptance/check_advance_expiry.py"
+      ]
+    }
+  },
+  "id": "20261125-203612-advance-expiry",
+  "created": "2026-11-25T20:36:12",
+  "updated": "2026-11-25T20:46:25",
+  "state": "completed",
+  "focus": [
+    "db.py",
+    "app.py",
+    "operations.py",
+    "tests/test_reversal_advances.py"
+  ],
+  "counters": {
+    "actions": 27,
+    "invalid_requests": 0,
+    "denied_actions": 0,
+    "model_retries": 1,
+    "shortened_outputs": 1,
+    "repair_rounds": 0,
+    "navigation_refusals": 0
+  },
+  "last_checks": {
+    "acceptance": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "regression_core": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "regression_reversal": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "build": {
+      "status": "passed",
+      "exit_code": 0
+    }
+  },
+  "owner_pid": null,
+  "heartbeat": "2026-11-25T20:46:25",
+  "last_fingerprint": "9a5b7a9ca3ef76868c56ae7b7495d4d47b08560dd51a8c6761b7e5a78194289d",
+  "baseline": {
+    "check": "acceptance",
+    "status": "failed",
+    "exit_code": 1
+  },
+  "reads": [
+    "list migrations",
+    "tests/test_reversal_advances.py 1-end",
+    "db.py 1-42",
+    "search 'CREATE TABLE payments' in migrations",
+    "search 'payments' in migrations",
+    "db.py 784-800",
+    "db.py 735-745",
+    "db.py 729-735",
+    "search 'def get_advances' in db.py",
+    "db.py 848-870",
+    "db.py 821-847",
+    "migrations/011_advance_expiry.sql 1-end",
+    "search 'import datetime' in db.py",
+    "db.py 705-762"
+  ],
+  "readonly_streak": 3,
+  "repeat_key": null,
+  "repeat_count": 0,
+  "finish_summary": "Added optional expiry date for customer advances: new migration migrations/011_advance_expiry.sql adds expires_on column to payments; DB.register_advance validates optional expires_on (ValueError mentioning 'expiry date' for bad or past dates) and stores it; get_advance_balance and use_advance skip expired advances; new DB.release_expired_advances() zeroes remaining on expired advances, inserts 'release' rows with the customer's company_id and negative amount, returns total released (idempotent); get_advances rows include expires_on; app.py POST /api/advance passes optional expires_on through, returning 400 on invalid values. All required checks pass.",
+  "status": "PASSED: agent finished and all required checks passed",
+  "stop_reason": "agent finished",
+  "changed_files": [
+    "app.py",
+    "db.py",
+    "migrations/011_advance_expiry.sql"
+  ],
+  "checks": [
+    {
+      "name": "acceptance",
+      "status": "passed",
+      "exit_code": 0,
+      "output": "PASS advance_without_expiry_still_works\nPASS invalid_expiry_text_is_rejected_and_stores_nothing\nPASS expiry_in_the_past_is_rejected_at_registration\nPASS valid_expiry_is_stored_and_listed\nPASS expired_advance_is_not_counted_or_used\nPASS release_frees_expired_balance_once\nPASS unexpired_advance_is_still_usable_after_release\nPASS release_row_keeps_the_customer\nPASS expiry_stays_optional_for_other_customers\n\nACCEPTANCE PASSED (9 checks)"
+    },
+    {
+      "name": "regression_core",
+      "status": "passed",
+      "exit_code": 0,
+      "output": "=== CORE TESTS (SQLite) ===\n\n1. Goods receipt (weighted average cost + freight allocation)\n  [OK] Received \n  [OK] Stock +10 — 4000.0 -> 4010.0\n  [OK] PURCHASE document created \n  [OK] Duplicate no rejected \n\n2. Goods receipt with a mismatched amount (must be rejected)\n  [OK] Amount mismatch → ok=False — Amount mismatch: received 1210.00 ~ invoice 1208.79\n\n3. Sale (stock decrease, profit)\n  [OK] Sold — invoice INV2600001\n  [OK] Invoice no INV format \n  [OK] Stock -4 \n  [OK] Profit = (150-cost)*4 — profit=598.39\n\n4. Cash sale (invoice_no = N)\n  [OK] Cash → invoice_no 'N' \n\n5. Transfer between warehouses\n  [OK] Transferred \n  [OK] Stock1 -2, Stock2 +2 \n  [OK] Same warehouse rejected \n\n6. Production — issue and completion with a finished item\n  [OK] Issued to production — G26000001\n  [OK] stock_production +2 \n  [OK] In the open production list \n  [OK] Completed with a finished item \n  [OK] stock_production written off (-2) \n  [OK] Production cleared \n\n7. REVERSAL — cancelling a sale restores the stock\n  [OK] Sale cancelled \n  [OK] Stock restored (+4) \n  [OK] Document marked as cancelled \n  [OK] Repeated cancellation rejected \n\n=== RESULTS ===\n  PASSED: 23\n  FAILED: 0"
+    },
+    {
+      "name": "regression_reversal",
+      "status": "passed",
+      "exit_code": 0,
+      "output": "=== REVERSAL + ADVANCE + OWNERSHIP (SQLite) ===\n\n1. A REVERSAL returns the consumed advance\n  [OK] Advance +1000 — 0.0 -> 1000.0\n  [OK] Sold — invoice INV2600001\n  [OK] Advance consumed (balance -544.50) — used=544.5 balance=455.5\n  [OK] Consumed > 0 — used=544.5\n  [OK] Cancelled \n  [OK] Refunded advance == consumed — refunded=544.5 used=544.5\n  [OK] Advance balance restored — 1000.0 (should be 1000.0)\n  [OK] Warehouse stock restored (+3) \n  [OK] Repeated cancellation rejected \n\n2. Ownership check (only the owner / admin / all_documents may cancel)\n  [OK] SOMEONE ELSE'S without the permission — blocked \n  [OK] Document stayed active after the blocked attempt \n  [OK] With 'all_documents' — allowed \n  [OK] The owner cancels their own — allowed \n\n3. due_date for a credit sale from the customer's payment terms\n  [OK] due_date = date + payment terms — 2026-07-15 (should be 2026-07-15)\n  [OK] Cash — due_date empty \n\n4. Advance collision across cash sales (shared doc_no 'N') — refunds ONLY its own\n  [OK] Both cash sales (N) consumed an advance — A=181.5 B=181.5\n  [OK] Balance decreased by usedA+usedB \n  [OK] Reversal of A refunded ONLY usedA (not usedA+usedB) — refunded=181.5 usedA=181.5 usedB=181.5\n  [OK] After the A reversal balance = b0 - usedB (B still stands) — 818.5 (should be 818.5)\n  [OK] Reversal of B refunded usedB \n  [OK] After both reversals the balance is fully restored (b0) — 1000.0 (should be 1000.0)\n  [OK] Reversal of a cash sale without an advance refunds 0 — refunded=0.0\n\n=== RESULTS ===\n  PASSED: 22\n  FAILED: 0"
+    },
+    {
+      "name": "build",
+      "status": "passed",
+      "exit_code": 0,
+      "output": "BUILD PASSED (21 files compile)"
+    }
+  ],
+  "diff_lines": 116
+}

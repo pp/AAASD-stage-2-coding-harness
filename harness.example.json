@@ -1,0 +1,62 @@
+{
+  "_comment": "Copy to harness.json to change settings. Values below are the defaults. Keys starting with _ are ignored. No secrets belong here.",
+  "runs_dir": "runs",
+  "ollama_url": "http://localhost:11434",
+  "model": "qwen3.8",
+  "model_timeout_s": 600,
+  "num_ctx": 16384,
+  "max_actions": 80,
+  "max_retries": 3,
+  "max_repair_rounds": 3,
+  "max_output_chars": 4000,
+  "max_read_chars": 6000,
+  "max_list_entries": 200,
+  "max_search_hits": 50,
+  "max_symbol_hits": 50,
+  "max_context_chars": 24000,
+  "max_map_chars": 4000,
+  "max_snippet_chars": 6000,
+  "verbatim_turns": 8,
+  "max_message_chars": 2000,
+  "docker_image": "python:3.12-slim",
+  "check_timeout_s": 300,
+  "container_memory": "1g",
+  "container_pids": 256,
+  "cancel_poll_s": 0.5,
+  "stale_heartbeat_s": 30,
+  "checks": {
+    "regression_core": [
+      "python",
+      "tests/test_core.py"
+    ],
+    "regression_reversal": [
+      "python",
+      "tests/test_reversal_advances.py"
+    ],
+    "build": [
+      "python",
+      "/acceptance/check_build.py"
+    ]
+  },
+  "denied_paths": [
+    ".git",
+    "data",
+    "backups",
+    "documents",
+    "logs",
+    "venv",
+    ".venv",
+    "vendor",
+    "__pycache__",
+    "config_local.json",
+    ".env",
+    ".vscode",
+    ".idea"
+  ],
+  "projects": {
+    "openstock": {
+      "path": "targets/openstock",
+      "description": "OpenStock (Flask + SQLite), pinned to abc87dc"
+    }
+  }
+}

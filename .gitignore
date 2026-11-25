@@ -1,0 +1,59 @@
+# Python bytecode and packaging
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Test and tooling caches
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local settings and secrets (never commit)
+harness.json
+config_local.json
+.env
+.env.*
+*.pem
+*.key
+
+# Harness run output: disposable working copies, sessions, logs
+runs/
+*.log
+
+# Target repository clone (pinned externally; see README setup)
+targets/
+
+# Live data and databases (the target's data/ folder is never part of this project)
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Temporary files
+tmp/
+*.tmp
+*.bak
